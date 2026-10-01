@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+  <meta name="theme-color" content="#eef4f8">
+
+  <title>TOMS Customer Satisfaction Survey</title>
+
+  <style>
+    :root {
+      /*
+       * ความสูงของแถบ Google Apps Script ที่ต้อง crop ออก
+       * ถ้าเครื่องใดยังเห็นเส้นแถบ ให้ลอง 42px–48px
+       */
+      --gas-banner-cut: 40px;
+
+      --app-bg: #eef4f8;
+      --navy: #0b3b68;
+      --muted: #6f879a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--app-bg);
+    }
+
+    body {
+      font-family:
+        Arial,
+        "Noto Sans Thai",
+        "Tahoma",
+        sans-serif;
+
+      /*
+       * fallback ก่อน 100dvh สำหรับ browser รุ่นเก่า
+       */
+      min-height: 100vh;
+      min-height: 100dvh;
+
+      overscroll-behavior: none;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    .app-shell {
+      position: fixed;
+      inset: 0;
+
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+
+      overflow: hidden;
+
+      background: var(--app-bg);
+
+      /*
+       * รองรับ iPhone / iPad notch และ safe area
+       * ตัว iframe ยังคงเต็มจอ ไม่สร้างช่องว่างเพิ่ม
+       */
+      padding:
+        env(safe-area-inset-top, 0px)
+        env(safe-area-inset-right, 0px)
+        env(safe-area-inset-bottom, 0px)
+        env(safe-area-inset-left, 0px);
+    }
+
+    .app-frame-wrap {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: var(--app-bg);
+    }
+
+    #tomsAppFrame {
+      position: absolute;
+
+      left: 0;
+
+      /*
+       * ดัน Google Apps Script host bar ออกเหนือ viewport
+       */
+      top: calc(-1 * var(--gas-banner-cut));
+
+      width: 100%;
+
+      /*
+       * เพิ่มความสูงกลับมาเท่ากับส่วนที่ crop ด้านบน
+       */
+      height: calc(100vh + var(--gas-banner-cut));
+      height: calc(100dvh + var(--gas-banner-cut));
+
+      border: 0;
+      margin: 0;
+      padding: 0;
+
+      display: block;
+
+      background: #ffffff;
+
+      opacity: 0;
+
+      transition:
+        opacity 260ms ease;
+
+      /*
+       * ลดโอกาสเกิดช่องว่าง/กระตุกใน Safari
+       */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+    }
+
+    .app-shell.is-loaded #tomsAppFrame {
+      opacity: 1;
+    }
+
+    /* =========================
+       Loading Screen
+       ========================= */
+
+    .loading-screen {
+      position: absolute;
+      inset: 0;
+
+      z-index: 20;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      padding:
+        max(24px, env(safe-area-inset-top, 0px))
+        max(20px, env(safe-area-inset-right, 0px))
+        max(24px, env(safe-area-inset-bottom, 0px))
+        max(20px, env(safe-area-inset-left, 0px));
+
+      background:
+        radial-gradient(
+          circle at 50% 38%,
+          rgba(255,255,255,.98) 0%,
+          rgba(248,252,255,.98) 46%,
+          rgba(236,244,249,.99) 100%
+        );
+
+      opacity: 1;
+      visibility: visible;
+
+      transition:
+        opacity 320ms ease,
+        visibility 320ms ease;
+    }
+
+    .app-shell.is-loaded .loading-screen {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loading-card {
+      width: min(360px, 88vw);
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      text-align: center;
+    }
+
+    .loading-logo {
+      width: 76px;
+      height: 76px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      margin-bottom: 18px;
+
+      border-radius: 22px;
+
+      background: #ffffff;
+
+      box-shadow:
+        0 12px 32px rgba(8, 47, 91, .10);
+
+      color: var(--navy);
+
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+
+    .loading-title {
+      color: var(--navy);
+
+      font-size: 19px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+
+    .loading-subtitle {
+      margin-top: 7px;
+
+      color: var(--muted);
+
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+
+    .loading-spinner {
+      width: 38px;
+      height: 38px;
+
+      margin-top: 24px;
+
+      border: 4px solid #d8e7f1;
+      border-top-color: #1266a3;
+      border-radius: 50%;
+
+      animation:
+        tomsSpin 750ms linear infinite;
+    }
+
+    .loading-note {
+      min-height: 18px;
+      margin-top: 16px;
+
+      color: #879aaa;
+
+      font-size: 11.5px;
+      line-height: 1.4;
+    }
+
+    @keyframes tomsSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* =========================
+       Configuration Error
+       ========================= */
+
+    .config-error {
+      display: none;
+
+      position: absolute;
+      inset: 0;
+
+      z-index: 30;
+
+      align-items: center;
+      justify-content: center;
+
+      padding: 24px;
+
+      background: #f4f8fb;
+    }
+
+    .config-error.show {
+      display: flex;
+    }
+
+    .config-error-card {
+      width: min(520px, 92vw);
+
+      padding: 22px;
+
+      border: 1px solid #d7e4ed;
+      border-radius: 16px;
+
+      background: #ffffff;
+
+      box-shadow:
+        0 14px 38px rgba(8, 47, 91, .10);
+    }
+
+    .config-error-card strong {
+      color: var(--navy);
+      font-size: 17px;
+    }
+
+    .config-error-card p {
+      margin:
+        10px
+        0
+        0;
+
+      color: #607a90;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .config-error-card code {
+      word-break: break-all;
+      color: #0b5c97;
+    }
+
+    /* =========================
+       Mobile / Tablet
+       ========================= */
+
+    @media (max-width: 820px) {
+      :root {
+        --gas-banner-cut: 40px;
+      }
+
+      .loading-logo {
+        width: 68px;
+        height: 68px;
+        border-radius: 20px;
+        font-size: 25px;
+      }
+
+      .loading-title {
+        font-size: 17px;
+      }
+
+      .loading-subtitle {
+        font-size: 12.5px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .loading-card {
+        width: min(330px, 90vw);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #tomsAppFrame,
+      .loading-screen {
+        transition: none;
+      }
+
+      .loading-spinner {
+        animation-duration: 1.4s;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main
+    class="app-shell"
+    id="appShell"
+  >
+    <div class="app-frame-wrap">
+      <iframe
+        id="tomsAppFrame"
+        title="TOMS Customer Satisfaction Survey"
+        src="about:blank"
+        allow="fullscreen"
+        allowfullscreen
+        loading="eager"
+        referrerpolicy="strict-origin-when-cross-origin"
+      ></iframe>
+    </div>
+
+    <section
+      class="loading-screen"
+      id="loadingScreen"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="loading-card">
+        <div
+          class="loading-logo"
+          aria-hidden="true"
+        >
+          TOMS
+        </div>
+
+        <div class="loading-title">
+          Loading Customer Satisfaction System
+        </div>
+
+        <div class="loading-subtitle">
+          กำลังเปิดระบบแบบประเมินความพึงพอใจ
+        </div>
+
+        <div
+          class="loading-spinner"
+          aria-hidden="true"
+        ></div>
+
+        <div
+          class="loading-note"
+          id="loadingNote"
+        >
+          Please wait a moment...
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="config-error"
+      id="configError"
+    >
+      <div class="config-error-card">
+        <strong>
+          Please configure the Apps Script Web App URL
+        </strong>
+
+        <p>
+          แก้ค่า <code>APP_URL</code> ในไฟล์นี้เป็น URL deployment
+          ที่ลงท้ายด้วย <code>/exec</code>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /*
+     * ========================================================
+     * SET YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL HERE
+     * ========================================================
+     *
+     * Example:
+     * const APP_URL =
+     *   "https://script.google.com/macros/s/XXXXXXXXXXXX/exec";
+     *
+     * สามารถใส่ query string ต่อท้ายได้ เช่น:
+     * /exec?page=dashboard
+     */
+
+    const APP_URL =
+      "https://script.google.com/macros/s/AKfycbz6MUKdWbD2z1Eld5K9yHo_mKSX7bvHknE6tg7j0tvPexsJY_7gORG6fq7L49kXT7OtCA/exec";
+
+
+    const appShell =
+      document.getElementById(
+        "appShell"
+      );
+
+    const appFrame =
+      document.getElementById(
+        "tomsAppFrame"
+      );
+
+    const loadingScreen =
+      document.getElementById(
+        "loadingScreen"
+      );
+
+    const loadingNote =
+      document.getElementById(
+        "loadingNote"
+      );
+
+    const configError =
+      document.getElementById(
+        "configError"
+      );
+
+
+    function isConfiguredUrl(
+      value
+    ) {
+      return (
+        /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i
+          .test(
+            String(
+              value || ""
+            )
+              .trim()
+          )
+      );
+    }
+
+
+    function markLoaded() {
+      /*
+       * Give Safari/Chrome one small paint cycle after iframe load
+       * so the fade is smoother and does not flash white.
+       */
+      window.setTimeout(
+        function () {
+          appShell.classList.add(
+            "is-loaded"
+          );
+
+          loadingScreen.setAttribute(
+            "aria-busy",
+            "false"
+          );
+        },
+        80
+      );
+    }
+
+
+    appFrame.addEventListener(
+      "load",
+      function () {
+        /*
+         * Ignore the initial about:blank load.
+         */
+        if (
+          appFrame.src ===
+          "about:blank"
+        ) {
+          return;
+        }
+
+        markLoaded();
+      }
+    );
+
+
+    /*
+     * Friendly status if Google is taking longer than usual.
+     * Loader remains visible until iframe really fires load.
+     */
+    window.setTimeout(
+      function () {
+        if (
+          !appShell.classList.contains(
+            "is-loaded"
+          )
+        ) {
+          loadingNote.textContent =
+            "Still loading... / ระบบกำลังโหลดข้อมูล";
+        }
+      },
+      7000
+    );
+
+
+    if (
+      !isConfiguredUrl(
+        APP_URL
+      )
+    ) {
+      loadingScreen.style.display =
+        "none";
+
+      configError.classList.add(
+        "show"
+      );
+
+    } else {
+      appFrame.src =
+        APP_URL;
+    }
+  </script>
+</body>
+</html>
