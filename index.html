@@ -16,7 +16,7 @@
        * ความสูงของแถบ Google Apps Script ที่ต้อง crop ออก
        * ถ้าเครื่องใดยังเห็นเส้นแถบ ให้ลอง 42px–48px
        */
-      --gas-banner-cut: 40px;
+      --gas-banner-cut: 56px;
 
       --app-bg: #eef4f8;
       --navy: #0b3b68;
@@ -81,6 +81,22 @@
       position: absolute;
       inset: 0;
       overflow: hidden;
+      background: var(--app-bg);
+    }
+
+    /*
+     * Hide any last 1–2px host border that some browsers render
+     * after cropping the Google Apps Script banner.
+     */
+    .app-frame-wrap::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 2px;
+      z-index: 5;
+      pointer-events: none;
       background: var(--app-bg);
     }
 
@@ -315,7 +331,7 @@
 
     @media (max-width: 820px) {
       :root {
-        --gas-banner-cut: 40px;
+        --gas-banner-cut: 56px;
       }
 
       .loading-logo {
