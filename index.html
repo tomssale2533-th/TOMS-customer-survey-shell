@@ -14,7 +14,7 @@
 
   <style>
     :root {
-      --gas-banner-cut: 58px;
+      --gas-banner-cut: 32px;
       --shell-bg: #eef4f8;
     }
 
@@ -166,7 +166,7 @@
      */
     @media (max-width: 760px) {
       :root {
-        --gas-banner-cut: 54px;
+        --gas-banner-cut: 32px;
       }
 
       #appFrame {
@@ -244,20 +244,11 @@
 
     function latestAppUrl() {
       /*
-       * Always request the current Apps Script deployment instead
-       * of reusing an old iframe response cached by the browser.
+       * Use the exact deployed Apps Script URL.
+       * This keeps routing and responsive behavior identical
+       * to opening /exec directly.
        */
-      const separator =
-        APP_URL.includes("?")
-          ? "&"
-          : "?";
-
-      return (
-        APP_URL +
-        separator +
-        "shell=1&_ts=" +
-        Date.now()
-      );
+      return APP_URL;
     }
 
 
